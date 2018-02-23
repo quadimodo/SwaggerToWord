@@ -1,6 +1,7 @@
 package com.tool.service.impl;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
 import com.tool.dto.Request;
 import com.tool.dto.Response;
 import com.tool.dto.Table;
@@ -9,8 +10,6 @@ import com.tool.util.HttpClientUtil;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
-import java.net.URL;
 import java.util.*;
 
 /**
@@ -21,7 +20,7 @@ public class TableServiceImpl implements TableService {
 
     private static Map<String, Object> MAP = new HashMap<>(256);
 
-    static {
+   /* static {
         try {
             //解析json
             ClassLoader classLoader = TableService.class.getClassLoader();
@@ -30,18 +29,25 @@ public class TableServiceImpl implements TableService {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }*/
+
+    private void getJson(String address, String port) {
+        String jsonStr = HttpClientUtil.get("http://" + address + ":" + port + "/v2/api-docs", null, null, "utf-8");
+        MAP = JSONObject.parseObject(jsonStr, Map.class);
+//        MAP = jsonObject;
     }
 
 
     @Override
-    public List<Table> tableList() {
+    public List<Table> tableList(String address, String port) {
+        getJson(address, port);
         List<Table> list = new LinkedList();
         //得到host，用于模拟http请求
         String host = String.valueOf(MAP.get("host"));
         //解析paths
-        LinkedHashMap<String, LinkedHashMap> paths = (LinkedHashMap) MAP.get("paths");
+        JSONObject paths = ((JSONObject) MAP.get("paths"));
         if (paths != null) {
-            Iterator<Map.Entry<String, LinkedHashMap>> iterator = paths.entrySet().iterator();
+            Iterator<Map.Entry<String, Object>> iterator = paths.entrySet().iterator();
             while (iterator.hasNext()) {
                 Table table = new Table();
                 List<Request> requestList = new LinkedList<>();
@@ -55,19 +61,19 @@ public class TableServiceImpl implements TableService {
                 String requestParam = ""; //请求参数
                 String responseParam = ""; //返回参数
 
-                Map.Entry<String, LinkedHashMap> next = iterator.next();
+                Map.Entry<String, Object> next = iterator.next();
                 url = next.getKey();
 
-                LinkedHashMap<String, LinkedHashMap> value = next.getValue();
+                Map<String, Object> value = (Map<String, Object>) next.getValue();
                 Set<String> requestTypes = value.keySet();
                 for (String str : requestTypes) {
                     requestType += str + "/";
                 }
 
-                Iterator<Map.Entry<String, LinkedHashMap>> iterator2 = value.entrySet().iterator();
+                Iterator<Map.Entry<String, Object>> iterator2 = value.entrySet().iterator();
                 //不管有几种请求方式，都只解析第一种
-                Map.Entry<String, LinkedHashMap> get = iterator2.next();
-                LinkedHashMap getValue = get.getValue();
+                Map.Entry<String, Object> get = iterator2.next();
+                Map<String, Object> getValue = (Map<String, Object>) get.getValue();
                 title = (String) ((List) getValue.get("tags")).get(0);
                 List<String> consumes = (List) getValue.get("consumes");
                 if (consumes != null && consumes.size() > 0) {
@@ -77,11 +83,11 @@ public class TableServiceImpl implements TableService {
                 }
                 tag = String.valueOf(getValue.get("summary"));
                 //请求体
-                List parameters = (ArrayList) getValue.get("parameters");
+                JSONArray parameters = (JSONArray) getValue.get("parameters");
                 if (parameters != null && parameters.size() > 0) {
                     for (int i = 0; i < parameters.size(); i++) {
                         Request request = new Request();
-                        LinkedHashMap<String, Object> param = (LinkedHashMap) parameters.get(i);
+                        JSONObject param = (JSONObject) parameters.get(i);
                         request.setName(String.valueOf(param.get("name")));
                         request.setType(String.valueOf(param.get("type")));
                         request.setParamType(String.valueOf(param.get("in")));
@@ -91,13 +97,13 @@ public class TableServiceImpl implements TableService {
                     }
                 }
                 //返回体
-                LinkedHashMap<String, Object> responses = (LinkedHashMap) getValue.get("responses");
+                JSONObject responses = (JSONObject) getValue.get("responses");
                 Iterator<Map.Entry<String, Object>> iterator3 = responses.entrySet().iterator();
                 while (iterator3.hasNext()) {
                     Response response = new Response();
                     Map.Entry<String, Object> entry = iterator3.next();
                     String status = entry.getKey(); //状态码 200 201 401 403 404 这样
-                    LinkedHashMap<String, Object> statusInfo = (LinkedHashMap) entry.getValue();
+                    JSONObject statusInfo = (JSONObject) entry.getValue();
                     String statusDescription = (String) statusInfo.get("description");
                     response.setName(status);
                     response.setDescription(statusDescription);

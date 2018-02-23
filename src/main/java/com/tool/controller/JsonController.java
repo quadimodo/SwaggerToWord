@@ -19,8 +19,8 @@ public class JsonController {
     private TableService tableService;
 
     @RequestMapping("/getJson")
-    public String getJson(Model model){
-        List<Table> list = tableService.tableList();
+    public String getJson(String address ,String port ,Model model){
+        List<Table> list = tableService.tableList(address ,port);
         model.addAttribute("table",list);
         return "json";
     }

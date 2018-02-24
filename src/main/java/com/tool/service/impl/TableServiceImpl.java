@@ -11,6 +11,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Created by XiuYin.Cui on 2018/1/12.
@@ -39,13 +40,16 @@ public class TableServiceImpl implements TableService {
 
 
     @Override
-    public List<Table> tableList(String address, String port) {
+    public Map<String, Object> tableList(String address, String port) {
         getJson(address, port);
         List<Table> list = new LinkedList();
         //得到host，用于模拟http请求
         String host = String.valueOf(MAP.get("host"));
         //解析paths
         JSONObject paths = ((JSONObject) MAP.get("paths"));
+
+        JSONObject info = (JSONObject) MAP.get("info");
+        String outline = (String) info.get("title") + " v" +info.get("version");
         if (paths != null) {
             Iterator<Map.Entry<String, Object>> iterator = paths.entrySet().iterator();
             while (iterator.hasNext()) {
@@ -139,7 +143,13 @@ public class TableServiceImpl implements TableService {
                 list.add(table);
             }
         }
-        return list;
+        Map<String, List<Table>> collect = list.parallelStream().collect(Collectors.groupingBy(Table::getTitle));
+//        list = list.stream().sorted(Comparator.comparing(Table::getTag, Collator.getInstance(java.util.Locale.CHINA))).collect(Collectors.toList());
+//        list = list.stream().sorted(Comparator.comparing(Table::getTag)).collect(Collectors.toList());
+        Map<String ,Object> result = new HashMap<>();
+        result.put("collect" ,collect);
+        result.put("outline",outline);
+        return result;
     }
 
     /**
